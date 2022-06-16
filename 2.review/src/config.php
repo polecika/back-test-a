@@ -1,0 +1,20 @@
+<?php
+ini_set('max_execution_time', 0);
+ini_set('precision', 10);
+ini_set('serialize_precision', 10);
+//ob_start("ob_gzhandler");
+$server_url = $_SERVER["REQUEST_SCHEME"] . "://" . $_SERVER["SERVER_ADDR"];
+define('SERVER_URL', $server_url);
+define("APIPATH", __DIR__ . "/");
+define('NOTIFY_EMAIL', 0);
+define('NOTIFY_SLACK', 0);
+define('NOTIFY_SLACK_CHANNEL', '#hm_test');
+define('SLACK_URL', 'https://hooks.slack.com/services/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');
+define('LOG_PATH', __DIR__ . '/../uploads/apiv3/');
+define('PRODUCT_CATALOG_IMAGE_PATH', __DIR__ . '/../pci/');
+define('AUTH_SALT', 'Qs6n{,=J:ZFv3zzyyZ:8bCh$1u=kyiG/SoBQ<Jkp[I)>#,~_5rwIy-z%rxc4fv');
+define('IMGVARS_PATH', __DIR__ . '/../imgvars/');
+define('IMGVARS_URL', $server_url . "/imgvars/");
+define('IMGVARS_APIKEY', "9aq3jaqi8");
+define('SLACK_PATH', $server_url . "/api-v3/slack/slack.php?");
+// include("autoload.php");
