@@ -8,7 +8,7 @@ include_once "req/func.php";
 include_once "../core/func.php";
 
 $actions_artworks = explode(",", "addPositionArtworks,loadArtworks,deletePositionArtworks,editPositionArtworks,editZoneSortsArtworks,saveArtworks");
-$action_hv = explode(",", "HVCountry,HVFeedback,HVFeedbackType,HVOverallDates,HVProductsList,HVGroupingList");
+$action_hv = explode(",", "HVCountry,HVFeedback,HVFeedbackType,HVOverallDates,HVProductsList,HVGroupingList,HVTopProducts");
 $mod["HelicopterView"] = $action_hv;
 
 $allowed_actions = get_allowed_actions($mod);

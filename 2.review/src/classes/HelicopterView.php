@@ -84,6 +84,176 @@ class HelicopterView
         return $products;
     }
 
+    /**
+     * @Route(api-v3/api.php?action=HVTopProducts)
+     */
+    public function HVTopProducts(): array
+    {
+        if (!isset($this->post['date_from']) || !isset($this->post['date_to'])) {
+            return [
+                'success' => false,
+                'message' => 'Time frames is required'
+            ];
+        }
+
+        $date_from = microTimeToTime($this->post['date_from']);
+        $date_to = microTimeToTime($this->post['date_to']);
+
+        if (is_array($this->post['countries'])) {
+            $country_shortnames = arrayToString(array_map('strtolower', $this->post['countries']));
+        } else {
+            $country_shortnames = '';
+        }
+
+        if (is_array($this->post['products'])) {
+            $product_nicknames = arrayToString(array_map('strtolower', $this->post['products']));
+        } else {
+            $product_nicknames = '';
+        }
+
+        if (is_bool($this->post['aggregate'])) {
+            $isAggregate = $this->post['aggregate'];
+        } else {
+            return [
+                'success' => false,
+                'message' => 'Aggregate parameter must be bool'
+            ];
+        }
+
+        if ($isAggregate) {
+            $products = $this->getAggregatedTopProductsCounterData($country_shortnames, $product_nicknames, $date_from, $date_to);
+        } else {
+            $products = $this->getTopProductsCounterData($country_shortnames, $product_nicknames, $date_from, $date_to);
+        }
+
+        usort($products, function ($item1, $item2) {
+            return $item2['value'] <=> $item1['value'];
+        });
+
+        return ['products' => $products];
+    }
+
+    private function getAggregatedTopProductsCounterData($country_shortnames, $product_nicknames, $date_from, $date_to)
+    {
+        if ($country_shortnames && $product_nicknames) {
+            $sql = "SELECT bpp.short_name as `product_shortname`,  
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value`
+                    FROM business_products bp
+                    LEFT JOIN business_parent_products bpp ON bpp.id = bp.parent_product_id
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                    AND (bpp.short_name in ('$product_nicknames'))
+                    AND c.short_name in ('$country_shortnames')
+                GROUP BY bpp.short_name";
+        } elseif (!$country_shortnames && $product_nicknames) {
+            $sql = "SELECT bpp.short_name as `product_shortname`, 
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value` 
+                    FROM business_products bp
+                    LEFT JOIN business_parent_products bpp ON bpp.id = bp.parent_product_id
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                    AND (bpp.short_name in ('$product_nicknames'))
+                GROUP BY bpp.short_name";
+        } elseif ($country_shortnames && !$product_nicknames) {
+            $sql = "SELECT bpp.short_name as `product_shortname`,  
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value` 
+                    FROM business_products bp
+                    LEFT JOIN business_parent_products bpp ON bpp.id = bp.parent_product_id
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                    AND c.short_name in ('$country_shortnames')
+                GROUP BY bpp.short_name";
+        } else {
+            $sql = "SELECT bpp.short_name as `product_shortname`,  
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value`  
+                    FROM business_products bp
+                    LEFT JOIN business_parent_products bpp ON bpp.id = bp.parent_product_id
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                GROUP BY bpp.short_name";
+        }
+        return $this->db->get_res($sql);
+    }
+
+    private function getTopProductsCounterData($country_shortnames, $product_nicknames, $date_from, $date_to)
+    {
+        if ($country_shortnames && $product_nicknames) {
+            $sql = "SELECT bp.short_name as `product_shortname`,  
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value`  
+                    FROM business_products bp
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                    AND (bp.short_name in ('$product_nicknames'))
+                    AND c.short_name in ('$country_shortnames')
+                GROUP BY bp.short_name";
+        } elseif (!$country_shortnames && $product_nicknames) {
+            $sql = "SELECT bp.short_name as `product_shortname`,  
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value` 
+                    FROM business_products bp
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE   
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                    AND (bp.short_name in ('$product_nicknames') OR dr.drid IS NULL)
+                GROUP BY bp.short_name";
+        } elseif ($country_shortnames && !$product_nicknames) {
+            $sql = "SELECT bp.short_name as `product_shortname`,  
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value` 
+                    FROM business_products bp
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                    AND c.short_name in ('$country_shortnames')
+                GROUP BY bp.short_name";
+        } else {
+            $sql = "SELECT bp.short_name as `product_shortname`,  
+                    COUNT(
+                        IF(`dr_status` = '" . self::HANDLED_REVIEW_STATUS  . "', dr.drid, NULL)
+                    ) as `value`
+                    FROM business_products bp
+                    LEFT JOIN products p ON bp.id = p.business_product_id
+                    LEFT JOIN country c ON c.id = p.country_id
+                    LEFT JOIN data_reviews dr ON dr.dr_product_id = p.id
+                WHERE
+                    (UNIX_TIMESTAMP(`dr_date`) BETWEEN '$date_from' AND '$date_to' OR `dr_date` IS NULL)
+                GROUP BY bp.short_name";
+        }
+
+        return $this->db->get_res($sql);
+    }
+
     private function getBusinessProductsShortnames(): array
     {
         $sql = "SELECT `short_name` FROM `business_products`";
